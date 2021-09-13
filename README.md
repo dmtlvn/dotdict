@@ -23,7 +23,7 @@ pip install -r requirements.txt
 
 The goal of the `dotdict` is to add a bit of convenient syntactic sugar while keeping all the standard interfaces intact. It is therefore is meant to be compatible with the standard `dict` in as many scenarios as possible. The main use cases for the added functionality are dictionaries with fixed schemas, access to which is not determined at runtime. 
 
-`dotdict` supports all the construction methods the normal `dict` does: mappings, iterables, generators, keywords etc. Conversion back to `dict` is done using method `dotdict.to_dict()`. All nested `dict` instances (but not its subclasses) are recursively converted to a `dotdict`, which enables chaining the dot to access nested dictionaries. Recursion also enters default `list` and `tuple` containers, but again not their subclasses. Subclasses of `dict`, `list` and `tuple` are stored as is, so all user-defined classes behave as expected:
+`dotdict` supports all the construction methods the normal `dict` does: mappings, iterables, generators, keywords etc. Conversion back to `dict` is done using method `dotdict.to_dict()`. All nested `dict` instances (**but not its subclasses**) are recursively converted to a `dotdict`, which enables chaining the dot to access nested dictionaries. Recursion also enters default `list` and `tuple` containers, but again **not their subclasses**. Subclasses of `dict`, `list` and `tuple` are stored as is, so all user-defined classes behave as expected:
 
 ```python
 >>> D = dotdict({
@@ -45,21 +45,24 @@ collections.OrderedDict
 >>> class FancyTuple(tuple):
 ...   __fancy_meter__ = 9000
 >>> D = dotdict({'foo': 4.20, 'bar': FancyTuple((69, {"spam": "egg"}))})
+>>> type(D.bar)
+FancyTuple
 >>> type(D.bar[1])
 dict
 ```
 
-The `dotdict` is mutable in the same way as a standard dictionary. The difference is that all `dict` instances in the assigned value are converted to `dotdict` recursively through other `dict`, `list` and `tuple` items, but not their subclasses:
+The `dotdict` is mutable in the same way as a standard dictionary. The difference is that all `dict` instances in the assigned value are converted to `dotdict` recursively through other `dict`, `list` and `tuple` items, but **not through their subclasses**:
 ```python
 >>> D = dotdict({'foo': 69, 'bar': {'spam': 4.20, "egg": ["big", "black", "crocs"]}})
 >>> D.foo = 'nice'
 >>> D.foo
 'nice'
->>> D.bar.spam = 'Mary Jane'
-'Mary Jane'
+>>> D.foo = {'baz': 'nice'}
+>>> type(D.foo)
+dotdict
 >>> D.bar.egg[2] = "crow"
 >>> D.bar.egg
-["big", "black", "crocs"]
+["big", "black", "crow"]
 >>> del D.bar.egg
 >>> D.bar
 {'spam': 4.2}
@@ -83,7 +86,7 @@ Attribute-style and index-style access can be mixed for nested dictionaries:
 4.2
 ```
 
-`dotdict` throws the same KeyError exceptions the normal `dict` does regardless the way of key access. 
+`dotdict` throws the same KeyError exceptions the normal `dict` does regardless the way of key access. Also, `hasattr` check works as expected: 
 ```python
 >>> D = dotdict({'foo': 69, 'bar': {'spam': 4.20}})
 >>> D.spam
@@ -92,9 +95,12 @@ KeyError: 'spam'
 KeyError: 'spam'
 >>> del D.spam
 KeyError: 'spam'
+
+>>> hasattr(D, 'foo')
+False
 ```
 
-The common problem in many similar implementations is handling of standard method names. `dotdict` resolves such cases in favor of the standard `dict` behavior. It can store these keywords but they can be accessed only with the index operator. The new syntax can make such cases a bit confusing: 
+The common problem in many similar implementations is handling of standard method names. `dotdict` resolves such cases in favor of the standard `dict` behavior. It can store these keywords but they can be accessed only with the index operator. The new syntax can make such cases a bit confusing, however, because it can't be used at runtime, it won't break anything: 
 ```python
 >>> D = attrdict(keys = 69)
 >>> D['keys']
@@ -134,11 +140,13 @@ dotdict({'foo': 'nice', 'bar': {'baz': 420}})
 >>> D = pickle.loads(pickle.dumps(D))
 >>> D.bar.spam
 4.2
+
 >>> json.dumps(D)
 '{"foo": 69, "bar": {"spam": 4.20}}}'
 >>> E = json.loads(json.dumps(D))
 >>> E.foo
 AttributeError: 'dict' object has no attribute 'foo'
+
 >>> print(yaml.dump(D))
 bar:
   spam: 4.2
@@ -147,4 +155,3 @@ foo: 69
 >>> E.foo
 AttributeError: 'dict' object has no attribute 'foo'
 ```
-
